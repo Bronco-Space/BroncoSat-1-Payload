@@ -4,7 +4,7 @@ import time
 
 msg = bytes(b'edge detection')
 
-with I2CSlave(board.SCL, board.SDA, [0x5]) as slave:
+with I2CSlave(board.SCL, board.SDA, [0x32]) as slave:
 	print("starting)")
 	while True:
 		r = slave.request()
