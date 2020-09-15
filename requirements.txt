@@ -1,0 +1,14 @@
+crccheck == 0.6
+Adafruit-Blinka == 5.4.0
+jetson-stats==3.0.1
+Cython
+matplotlib
+ipython 
+jupyter 
+pandas 
+sympy 
+nose
+numpy
+scipy
+Pillow
+https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-2.3.0-cp36-cp36m-manylinux2010_x86_64.whl
