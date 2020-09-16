@@ -16,29 +16,43 @@ benchmark_addr = 0x32
 thermo = adafruit_mcp9808.MCP9808(i2c)
 
 class tempThread(threading.Thread):
-    def __init__(self, delay, addr, temp, i2c):
-        threading.Thread.__init__(self, daemon=True)
+    def __init__(self, delay, addr, temp, i2c, end):
+        threading.Thread.__init__(self)
         self.delay = delay
         self.addr = addr
         self.temp = temp
         self.i2c = i2c
+        self.e = end
 
     def run(self):
-        try:
-            print(self.temp.temperature)
-            self.i2c.writeto(self.addr, struct.pack('f',50.5))
-            time.sleep(self.delay)
-        except Exception:
-            print("Encountered an error in temp thread")
+        while not self.e.isSet():
+            try:
+                time.sleep(self.delay)
+                temp_reading = self.temp.temperature 
+                print(temp_reading, temp_reading*9/5+32)
+                self.i2c.writeto(self.addr, struct.pack('f',temp_reading))
+                
+            except Exception:
+                print("Encountered an error in temp thread")
 
 
 while not i2c.try_lock():
     pass
 
+code = 255
+
 try:
-    result = bytearray(1)
-    i2c.readfrom_into(benchmark_addr, result)
-    code = int.from_bytes(result,"big")
+    while code > 4:
+        result = bytearray(1)
+        i2c.readfrom_into(benchmark_addr, result)
+        code = int.from_bytes(result,"big")
+
+    i2c.unlock()
+
+    done = threading.Event()
+
+    temp_reading = tempThread(2, temp_addr, thermo, i2c, done)
+    temp_reading.start() 
 
     if code == 0:
         print("running edge benchmark tester")
@@ -54,23 +68,18 @@ try:
         msg = msg = struct.pack('IHffffI',0,0,0,0,0,0,0)
     else:
         print("Unknown code: "+str(code))
+        
+    done.set()
+    temp_reading.join()
 
-    # temp_reading = tempThread(10, temp_addr, thermo)
-    # temp_reading.start() 
-
-    time.sleep(3)
-
-    
-    msg_size = len(msg)
+    while not i2c.try_lock():
+        pass
 
     i2c.writeto(benchmark_addr, msg)
-    read_size = bytearray(8)
-    i2c.readfrom_into(benchmark_addr, read_size)
-    if len(read_size) == 8:
-        val = struct.unpack('L',read_size)
-        print(msg_size, val)
-    else:
-        print("Error reading size")
-    
+    recieved = bytearray(28)
+    i2c.readfrom_into(benchmark_addr, recieved)
+    val = struct.unpack('IHffffI', recieved)
+    print(msg, recieved)
+
 finally:
     i2c.unlock()
