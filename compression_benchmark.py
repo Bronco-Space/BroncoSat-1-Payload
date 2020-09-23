@@ -1,28 +1,199 @@
+import gzip
+import bz2
+import lzma
+import zlib
 from PIL import Image
-import PIL
-import compress_file
-import sys
 import os
-from os.path import isfile
-from terminaltables import AsciiTable
+from os.path import isfile, join
+import sys
 import time
 import csv
 import scaleImage
+import pathlib
 
+#This can be removed later, only used to make console output look nice
+from terminaltables import AsciiTable
+
+#This file is a modified version of demo_compress.py from https://github.com/fhkingma/bitswap
 """
-    This script can be used to input an image and run compression on it at various resolutions and then output statistics on compression ratio relative to the source image and time taken per algorithm.
-    This script resizes the source image to percents of the original image size.
-    Usage: CLI or .main()
-    Run from CLI you must provide the path to the image (prepended with PATH:), the highest percentage resolution to run on (prepended with HIGH:), the smallest percentage resolution to run on (prepended with LOW:), and the percent to incrementally run at (prepended with INC:).
-    i.e. 'python3 benchmark_file.py PATH:"C:\Image.png" HIGH:100 LOW:50 INC:5' would run compress_file.py on the source image at 100%, 95%, 90%, 85%... and 50% resolution. Starting at 100% and incrementing to 50% by 5% each time.
-    Run from main() use compression_benchmark.main(string path, int high, int low, int inc)
-    Notes:
-    Technically you could provide a HIGH: value above 100. Why you would do that though...
-    To run once at X resolution size set HIGH:X LOW:X INC:1. inc cannot be 0.
-    The incrementing starts from high so the exact low value might not be run if the increment value doesn't coincide with the difference between the two. (high-low)%inc != 0 (i.e. HIGH:100 LOW:90 INC:6 would run on 100% and 94%)
+    If you want to run compression on a file use compress()
+    If you want to benchmark use compBenchmark()
+    If you want to get the run code use run()
+    You probably shouldn't call runCompressApproach since that function itself doesn't check path validity
+    
+    This script can be used to compress an image. It will take an input image and attempt to compress it using various compression techniques, and then save the resultant file.
+    The main function of this script RETURNS statistics about the compression for use in benchmark_file.py and (without the verbose flag) outputs to CONSOLE the absolute location of the compressed file.
+    Run from CLI you must include as arguments a path to the image first, and then optionally a 'v' and/or 'd' for verbose output and to delete the resultant compressed file respectively. i.e. 'python3 compress_file.py "C:\Image.tiff" vd'
+    Run from compress_file.main it requires a path to the image, and then boolean values for verbose and delete respectively.
 """
 
-def main(path, high, low, inc):
+logging_delay = 10
+
+def input_file(path):  # Input file and check that it is a valid file. Return information about the file.
+    if not isinstance(path, str):
+        print('Path must be string.')
+        sys.exit(-1)
+    if not os.path.exists(path):
+        print('Path does not exist.')
+        sys.exit(-1)
+    if not isfile(path):
+        print('Path does not point to a file.')
+        sys.exit(-1)
+
+    dir, file = os.path.split(os.path.abspath(path))
+    filename, file_ext = os.path.splitext(file)
+    file_ext = f'{file_ext[1:]}'
+    return dir, filename, file_ext
+
+#This function runs the various compression algorithms. Passing path along with dir/filename/file_ext is a bit redundant might change later
+def runCompressionApproach(path, dir, filename, file_ext, infile_data, compression, verboseFlag, deleteFlag):
+    #Initialize variables
+    total_time = 0
+    compressed_size = 0
+    if verboseFlag: print(f'{compression} compression starting... ', end='', flush=True)
+
+    #Ready file_out
+    file_out_path = join(dir, f'{filename}_{file_ext}.{compression}')
+    file_out = open(file_out_path, 'wb')
+
+    #Run different compression algorithms
+    temp_time = time.time()
+    if compression == 'zlib':
+        file_out.write(zlib.compress(infile_data))
+    elif compression == 'gzip':
+        file_out.write(gzip.compress(infile_data))
+    elif compression == 'bz2':
+        file_out.write(bz2.compress(infile_data))
+    elif compression == 'lzma':
+        file_out.write(lzma.compress(infile_data))
+    elif compression == 'png':
+        Image.open(path).save(file_out_path, format='PNG', optimize=True, compress_level=9)
+    elif compression == 'webp':
+        Image.open(path).save(file_out_path, format='WebP', lossless=True, quality=100, method=6)
+
+    #Set statistics and close file
+    time_taken = time.time() - temp_time
+    file_out.close()
+    compressed_size = os.path.getsize(file_out_path)
+
+    #Determine if this run had better compression than the previous best and take actions accordingly
+    global min_size
+    if compressed_size < min_size[0]:   #If this approach had the best compression so far
+        if verboseFlag: print('Better compression achieved')
+        if not deleteFlag and min_size[1] != 'uncompressed':    #If not a benchmark and the previous best wasn't the source image, then delete previous best
+            os.remove(join(dir, f'{filename}_{file_ext}.{min_size[1]}'))
+        elif deleteFlag:                #Benchmarking so delete any produced files
+            os.remove(file_out_path)
+        min_size = [compressed_size, compression]
+    else:                               #This approach didn't have the best compression, delete file
+        if verboseFlag: print('Worse compression achieved')
+        os.remove(file_out_path)
+
+    #Determine and update whether this approach had faster compression time
+    global min_time
+    if time_taken < min_time[0]:
+        min_time = [time_taken, compression]
+
+    #Return the resultant compressed size and how long the algorithm ran
+    return compressed_size, time_taken
+
+#Global variables that store the fastest and best compression algorithms. Use the format [size/time, 'name of algorithm']
+min_size = []
+min_time = []
+#Main function, called for compression, benchmarking, or that code thing
+def compress(path, verboseFlag, deleteFlag):
+    total_time = time.time()
+    # Get info about image
+    valid_filetypes = ('png', 'tif', 'tiff', 'jpg', 'jpeg', 'bmp', 'webp')
+    dir, filename, file_ext = input_file(path=path)
+    if not file_ext in valid_filetypes: #Accept only image files
+        print(f'{file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
+        sys.exit(-1)
+    uncompressed_size = os.path.getsize(join(dir, filename + '.' + file_ext))  # Size of original file
+
+    # Open input file and store contents. Create list to store best approach
+    infile = open(path, 'rb')
+    infile_data = infile.read()
+
+    #Ready running tally of best algorithms
+    global min_size
+    min_size = [uncompressed_size, 'uncompressed']
+    global min_time
+    min_time = [float('inf'), 'uncompressed']
+
+    # Run compression
+    if verboseFlag:
+        print('')
+        print('Beginning compression...')
+
+    # Run various compression approaches
+    zlib_size, zlib_time = runCompressionApproach(path, dir, filename, file_ext, infile_data, 'zlib', verboseFlag, deleteFlag)
+    gzip_size, gzip_time = runCompressionApproach(path, dir, filename, file_ext, infile_data, 'gzip', verboseFlag, deleteFlag)
+    bz2_size, bz2_time = runCompressionApproach(path, dir, filename, file_ext, infile_data, 'bz2', verboseFlag, deleteFlag)
+    lzma_size, lzma_time = runCompressionApproach(path, dir, filename, file_ext, infile_data, 'lzma', verboseFlag, deleteFlag)
+    png_size, png_time = runCompressionApproach(path, dir, filename, file_ext, infile_data, 'png', verboseFlag, deleteFlag)
+    webp_size, webp_time = runCompressionApproach(path, dir, filename, file_ext, infile_data, 'webp', verboseFlag, deleteFlag)
+
+    # Output table detailing compression numbers of the different algorithms
+    compression_data = [
+        ['Compression Scheme', 'Filename', 'Size (bits)', 'Ratio (%)', 'Savings (%)', 'Time (s)'],
+        ['Uncompressed', f'{filename}_uncompressed.npy', uncompressed_size, '100.00', '0.00', 'N/A'],
+        ['Zlib', f'{filename}_{file_ext}.zlib', zlib_size, f'{(zlib_size / uncompressed_size) * 100:.2f}',
+         f'{100. - (zlib_size / uncompressed_size) * 100:.2f}', f'{zlib_time:.3f}'],
+        ['GNU Gzip', f'{filename}_{file_ext}.gzip', gzip_size, f'{(gzip_size / uncompressed_size) * 100:.2f}',
+         f'{100. - (gzip_size / uncompressed_size) * 100:.2f}', f'{gzip_time:.3f}'],
+        ['bzip2', f'{filename}_{file_ext}.bz2', bz2_size, f'{(bz2_size / uncompressed_size) * 100:.2f}',
+         f'{100. - (bz2_size / uncompressed_size) * 100:.2f}', f'{bz2_time:.3f}'],
+        ['LZMA', f'{filename}_{file_ext}.lzma', lzma_size, f'{(lzma_size / uncompressed_size) * 100:.2f}',
+         f'{100. - (lzma_size / uncompressed_size) * 100:.2f}', f'{lzma_time:.3f}'],
+        ['PNG', f'{filename}_{file_ext}.png', png_size, f'{(png_size / uncompressed_size) * 100:.2f}',
+         f'{100. - (png_size / uncompressed_size) * 100:.2f}', f'{png_time:.3f}'],
+        ['WEBP', f'{filename}_{file_ext}.webp', webp_size, f'{(webp_size / uncompressed_size) * 100:.2f}',
+         f'{100. - (webp_size / uncompressed_size) * 100:.2f}', f'{webp_time:.3f}'],
+    ]
+    table = AsciiTable(compression_data)
+    table.title = 'Results'
+    if verboseFlag:
+        print('')
+        print(table.table)
+        print('')
+
+    #Display information about the best compression algorithm, time taken, and location of file if not deleted
+    min_size_format = min_size[1]
+    min_time_format = min_time[1]
+    if verboseFlag: print(f'{min_size_format} compression resulted in smallest file size', flush=True)
+    total_time = time.time() - total_time
+    if verboseFlag: print(f'Total time taken: {total_time:.3f} seconds.')
+    if not deleteFlag: print(join(dir, f'{filename}_{file_ext}.{min_size[1]}'))
+
+    #Output log data for benchmark_file.py
+    out_log = f',uncomp,zlib,gzip,bz2,lzma,png,webp,best\nsize,{uncompressed_size},{zlib_size},{gzip_size},{bz2_size},{lzma_size},{png_size},{webp_size},{min_size_format}\ntime,0,{zlib_time:.3f},{gzip_time:.3f},{bz2_time:.3f},{lzma_time:.3f},{png_time:.3f},{webp_time:.3f},{min_time_format}'
+
+    #Calculate encoded return code
+    #If compression results in a size larger than uncompressed or something else wacky goes on it will return 0
+    encodedReturnVal = 0000;
+    bestRatio = min_size[0] / uncompressed_size #* 1000
+
+    #Use raw float for comparison so if the compressed file is one bit smaller it is still included
+    if bestRatio < 1 and bestRatio >= 0:
+        if min_size[1] == 'zlib':
+            encodedReturnVal = 1000
+        elif min_size[1] == 'gzip':
+            encodedReturnVal = 2000
+        elif min_size[1] == 'bz2':
+            encodedReturnVal = 3000
+        elif min_size[1] == 'lzma':
+            encodedReturnVal = 4000
+        elif min_size[1] == 'png':
+            encodedReturnVal = 5000
+        elif min_size[1] == 'webp':
+            encodedReturnVal = 6000
+
+        encodedReturnVal += int(bestRatio * 1000)
+    return out_log, encodedReturnVal, bestRatio * 100
+
+#Benchmark
+def compBenchmark(path, high, low, inc):
     if not isinstance(path, str):
         print(f'Path ({path}) must be string.')
         sys.exit(-1)
@@ -65,7 +236,7 @@ def main(path, high, low, inc):
 
         # Run compression and output log to output_log
         image = Image.open(image_path)
-        output_log = compress_file.main(path=f'{image_path}', verboseFlag=False, deleteFlag=True)
+        output_log, _, _ = compress(path=f'{image_path}', verboseFlag=False, deleteFlag=True)
         image.close()
 
         # Parse and store output_log information to compression_size/time_data
@@ -108,15 +279,22 @@ def main(path, high, low, inc):
     with open('benchmark_time_log.csv', mode='w', newline='') as time_log:
         time_log = csv.writer(time_log, delimiter=',')
         time_log.writerows(compression_time_data)
+    return
 
-if __name__ == '__main__':
-    if len(sys.argv) != 5 or not sys.argv[1].upper().startswith('PATH:') or not sys.argv[2].upper().startswith('HIGH:') or not sys.argv[3].upper().startswith('LOW:') or not sys.argv[4].upper().startswith('INC:'):
-        print(f'Usage must be:\npython3 {os.path.basename(__file__)} PATH:[path to file] HIGH:[100-0 percent of file size to start at] LOW:[100-0 percent of file size to end at] INC:[integer increment to resize by]\n')
-        sys.exit(-1)
+def run():
+    workingPath = pathlib.Path().absolute()
+    picturesPath = os.path.join(workingPath, 'pictures')
 
-    # Check that input path is valid
-    path = sys.argv[1][5:]
-    high = sys.argv[2][5:]
-    low = sys.argv[3][4:]
-    inc = sys.argv[4][4:]
-    main(path, high, low, inc)
+    if not os.path.isdir(picturesPath):
+        print('/pictures doesn\'t exist')
+        sys.exit(-1);
+
+    file_list = os.listdir(picturesPath)
+    bestResult = [100.0, 0]
+    for file_name in file_list:
+        inPicturePath = os.path.join(workingPath, 'pictures', file_name)
+        _, val, ratio = compress(inPicturePath, False, True)
+        if ratio < bestResult[0]:
+            bestResult[0] = ratio
+            bestResult[1] = val
+    return bestResult[1]

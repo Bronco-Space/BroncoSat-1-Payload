@@ -7,7 +7,10 @@ import struct
 import record
 
 # import the benchmarks here
-import bench_test
+import edge_detection_benchmark
+import compression_benchmark
+import jetson_benchmark
+import mask_benchmark
 
 i2c = busio.I2C(board.SCL, board.SDA)
 
@@ -55,19 +58,20 @@ try:
     temp_reading.start() 
 
     if code == 0:
-        print("running edge benchmark tester")
-        msg = record.execute(bench_test)
+        print("Running Edge Detection")
+        msg = record.execute(edge_detection_benchmark)
     elif code == 1:
         print("Running Jetson suite")
-        msg = msg = struct.pack('IHffffI',0,0,0,0,0,0,0)
+        msg = record.execute(jetson_benchmark)
     elif code == 2:
         print("Running Image compression")
-        msg = struct.pack('IHffffI',0,0,0,0,0,0,0)
+        msg = record.execute(compression_benchmark)
     elif code == 3:
         print("Runnign Mask R-CNN")
-        msg = msg = struct.pack('IHffffI',0,0,0,0,0,0,0)
+        msg = record.execute(mask_benchmark)
     else:
         print("Unknown code: "+str(code))
+        
         
     done.set()
     temp_reading.join()
