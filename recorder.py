@@ -77,12 +77,12 @@ if output_txt:
 	open(output_dir+output_name+'.txt', 'w').close()
 open(output_dir+output_name+'-console-output.txt', 'w').close()
 open(output_dir+output_name+'.csv', 'w').write(
-	'Time,GPU %,Fan %,AO Temp *C,CPU Temp *C,GPU Temp *C,Thermal *C,Current Pwr mW,Average Pwr mW,CPU %\n')
+	'Time,GPU %,Fan %,AO Temp *C,CPU Temp *C,GPU Temp *C,Thermal *C,Current Pwr mW,Average Pwr mW,GPU Freqency Hz,CPU %\n')
 
 
-# Converts the jetson stats to human readable text and a csv string for writing
+# Converts the jetson stats and gpu stats to human readable text and a csv string for writing
 
-def stats_parse(stats):
+def stats_parse(stats, gpu_stats):
 	if formatted_time:
 		time = stats['time'].strftime("%m/%d/%Y %H:%M:%S:%f")
 	else:
@@ -100,6 +100,7 @@ def stats_parse(stats):
 	thermal = str(stats['Temp thermal'])
 	current_pwr = str(stats['power cur'])
 	avg_pwr = str(stats['power avg'])
+	gpu_freq = str(gpu_stats['frq'])
 	status = '['+time+'] - '
 	# Handle string formatting for each cpu
 	for i, temp in enumerate(cpus):
@@ -108,7 +109,7 @@ def stats_parse(stats):
 	thermal + '*C\tFan: ' + fan + '%\tCurrent Power: ' + \
 	current_pwr + ' mW\tAverage Power: ' + avg_pwr + 'm W\n'
 	csv = ','.join([time, gpu, fan, ao_temp, cpu_temp, gpu_temp, thermal,
-			current_pwr, avg_pwr, ','.join([str(x) for x in cpus])])+'\n'
+			current_pwr, avg_pwr,gpu_freq, ','.join([str(x) for x in cpus])])+'\n'
 	# Return a tuple with the csv string and human readable string
 	return (csv, status)
 
@@ -137,7 +138,7 @@ class logThread(threading.Thread):
 							break
 						self.timeout_updates -= 1
 					with open(self.filename+'.csv', 'a') as csv:
-						(csv_data, string) = stats_parse(jetson.stats)
+						(csv_data, string) = stats_parse(jetson.stats, jetson.gpu)
 						csv.write(csv_data)
 						if self.make_txt:
 							with open(self.filename+'.txt', 'a') as file:
