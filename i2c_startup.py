@@ -25,7 +25,7 @@ i2c = busio.I2C(board.SCL, board.SDA)
 
 temp_addr = 0x20
 benchmark_addr = 0x32
-thermo = adafruit_mcp9808.MCP9808(i2c)
+#thermo = adafruit_mcp9808.MCP9808(i2c)
 
 class tempThread(threading.Thread):
     def __init__(self, delay, addr, temp, i2c, end):
@@ -70,7 +70,7 @@ try:
 
     # Create the temperature reading thread with temp reading delay in seconds (first arg)
     temp_reading = tempThread(15, temp_addr, thermo, i2c, done)
-    temp_reading.start() 
+    #temp_reading.start() 
 
     if code == 0:
         print("Running Edge Detection")
