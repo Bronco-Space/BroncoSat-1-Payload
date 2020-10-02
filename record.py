@@ -50,11 +50,16 @@ class logThread(threading.Thread):
 
 # Function to log output from a particular benchmark
 def execute(benchmark):
-	if os.path.exists(os.getcwd()+'/data/0'):
-		benchmark_num = 1 + [int(num) for num in os.listdir(os.getcwd()+'/data')][-1]
+	excution_path = __file__[:-10]
+	if os.path.exists(excution_path+'/data/0'):
+		x = [int(num) for num in os.listdir(excution_path+'/data')]
+		x.sort()
+		print(x)
+		benchmark_num = x[-1] + 1
 	else:
 		benchmark_num = 0
-	output_name = os.getcwd()+'/data/'+ str(benchmark_num)+'/out.csv'
+	print('using folder '+str(benchmark_num))
+	output_name = excution_path+'/data/'+ str(benchmark_num)+'/out.csv'
 	os.makedirs(os.path.dirname(output_name), exist_ok=True)
 	logging_delay = benchmark.logging_delay
 
@@ -65,7 +70,8 @@ def execute(benchmark):
 	log = logThread(finished, output_name, logging_delay)
 	log.start()
 	score = benchmark.run()
-
+	print('score',score)
 	finished.set()
+	log.join()
 
 	return postprocess.process(output_name, score)

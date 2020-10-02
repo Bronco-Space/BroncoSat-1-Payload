@@ -29,6 +29,7 @@ thermo = adafruit_mcp9808.MCP9808(i2c)
 
 class tempThread(threading.Thread):
     def __init__(self, delay, addr, temp, i2c, end):
+        print("creating temp thread...")
         threading.Thread.__init__(self)
         self.delay = delay
         self.addr = addr
@@ -37,6 +38,7 @@ class tempThread(threading.Thread):
         self.e = end
 
     def run(self):
+        print("starting temp thread")
         while not self.e.isSet():
             try:
                 time.sleep(self.delay)
@@ -44,8 +46,8 @@ class tempThread(threading.Thread):
                 print(temp_reading, temp_reading*9/5+32)
                 self.i2c.writeto(self.addr, struct.pack('f',temp_reading))
                 
-            except Exception:
-                print("Encountered an error in temp thread")
+            except Exception as e:
+                print("Encountered an error in temp thread",e)
 
 
 while not i2c.try_lock(): # Acquire the i2c lock
@@ -53,11 +55,14 @@ while not i2c.try_lock(): # Acquire the i2c lock
 
 code = 255
 
+print("starting i2c_startup.py...")
+
 try:
     while code > 20:
         result = bytearray(1)
         i2c.readfrom_into(benchmark_addr, result)
         code = int.from_bytes(result,"big")
+        print("invalid code: ",code)
 
     i2c.unlock()
 
@@ -112,12 +117,14 @@ try:
 
     while not i2c.try_lock():
         pass
-
+    print('sending data')
     i2c.writeto(benchmark_addr, msg)
     recieved = bytearray(28)
+    print(recieved)
     i2c.readfrom_into(benchmark_addr, recieved)
     val = struct.unpack('IHffffI', recieved)        # Packages data and sends to pycubed
     print(msg, recieved)
-
+except Exception as err:
+    print(err)
 finally:
     i2c.unlock()

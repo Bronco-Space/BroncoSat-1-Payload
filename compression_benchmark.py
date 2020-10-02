@@ -282,7 +282,7 @@ def compBenchmark(path, high, low, inc):
     return
 
 def run():
-    workingPath = pathlib.Path().absolute()
+    workingPath = pathlib.Path(__file__).parent.absolute()
     picturesPath = os.path.join(workingPath, 'pictures')
 
     if not os.path.isdir(picturesPath):

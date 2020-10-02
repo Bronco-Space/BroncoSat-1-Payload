@@ -2,11 +2,16 @@ import struct
 import numpy as np
 
 def format(row):
-    data = row.split(',')
-    return [float(val) for val in data]
+    try:
+        data = row.split(',')
+        return [float(val) for val in data]
+    except Exception as e:
+        print(e)
+        return []
 
 # Processes a csv file and converts it to byte array of usable data
 def process(fname, score):
+    print(fname)
     data = []
     with open(fname,'r') as file:
         first_line = True
@@ -17,7 +22,11 @@ def process(fname, score):
                 data.append(format(row))
 
     data = np.array(data)
-    runtime = int(data[-1,0]-data[0,0])
+    print(data)
+    if len(data) == 1:
+        runtime = 0
+    else:
+        runtime = int(data[-1,0]-data[0,0])
     benchmark_score = score
     init_cpu_temp = data[0,4]
     init_gpu_temp = data[0,5]
