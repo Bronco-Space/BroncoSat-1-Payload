@@ -4,6 +4,8 @@ import warnings
 import params as args
 warnings.simplefilter("ignore")
 
+logging_delay = args.logging_delay
+
 def run():
     csv_file_path = args.csv_file_path
     model_path = args.model_dir

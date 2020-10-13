@@ -27,7 +27,7 @@ def process(fname, score):
         runtime = 0
     else:
         runtime = int(data[-1,0]-data[0,0])
-    benchmark_score = score
+    benchmark_score = int(score)
     init_cpu_temp = data[0,4]
     init_gpu_temp = data[0,5]
     max_cpu_temp = max(data[:,4])
