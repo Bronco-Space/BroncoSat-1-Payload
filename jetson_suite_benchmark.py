@@ -11,6 +11,8 @@ import yolo_benchmark
 import resnet_benchmark
 import mobilenet_benchmark
 
+logging_delay = args.logging_delay
+
 warnings.simplefilter("ignore")
 
 def run():
