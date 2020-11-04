@@ -8,7 +8,7 @@ import time
 import getopt
 from datetime import datetime
 
-# example: 'python3 recorder.py .2 "cat sample.txt"'
+# example: 'python3 recorder.py -d .2 -c "cat sample.txt"'
 # will run 'cat sample.txt' and log every .2 seconds jtop data
 # Made for python3, needs jetson-stats from pip3
 
@@ -25,7 +25,7 @@ def usage():
 	print('\t-f  -  (optional) If this flag is present the program will use seconds since startup instead of a formatted date string for time')
 	print('\t-s  -  (Optional) If this flag is present, the jetson will shutdown after it is done')
 
-
+# Sets default values in case arguments don't override them
 output_name = 'out'
 time_dir = datetime.now().strftime('%Y-%m-%d/%H-%M/')
 output_dir = os.getcwd()+'/'
@@ -36,7 +36,7 @@ shutdown = False
 output_txt = False
 formatted_time = True
 
-# Gets the command line arguments
+# Gets the command line arguments and sets the variables
 try:
 	opts, args = getopt.getopt(sys.argv[1:], 'hd:c:o:p:t:sfr')
 	flags = set([opt[0] for opt in opts])
@@ -72,7 +72,7 @@ except getopt.GetoptError as err:
 	print(str(err))
 	exit()
 
-# adds space to the log files incase they already exist
+# adds space to the log files incase they already exist, otherwise creates the file
 if output_txt:
 	open(output_dir+output_name+'.txt', 'w').close()
 open(output_dir+output_name+'-console-output.txt', 'w').close()
@@ -80,8 +80,7 @@ open(output_dir+output_name+'.csv', 'w').write(
 	'Time,GPU %,Fan %,AO Temp *C,CPU Temp *C,GPU Temp *C,Thermal *C,Current Pwr mW,Average Pwr mW,GPU Freqency Hz,CPU %\n')
 
 
-# Converts the jetson stats and gpu stats to human readable text and a csv string for writing
-
+# Converts the jetson stats and gpu stats to human readable text and a csv string that can be written to a file
 def stats_parse(stats, gpu_stats):
 	if formatted_time:
 		time = stats['time'].strftime("%m/%d/%Y %H:%M:%S:%f")
@@ -113,8 +112,8 @@ def stats_parse(stats, gpu_stats):
 	# Return a tuple with the csv string and human readable string
 	return (csv, status)
 
-# Logging thread to run in the background while the command is executing
 
+# Logging thread to run in the background while the command is executing, this logs the data at a certain time interval
 
 class logThread(threading.Thread):
 	def __init__(self, event, filename, delay, timeout_sec, make_txt):
@@ -155,10 +154,8 @@ finished = threading.Event()
 log = logThread(finished, output_dir+output_name, logging_delay, timeout, output_txt)
 log.start()
 os.system('script --timing=' + output_dir+output_name + '-times.txt '+output_dir+output_name+'-console-output.txt -c "'+command_str+'"')
-#os.system(command_str)
 
 finished.set()
-#print('Done all')
 
 if shutdown:
 	print("Shutting down...")
