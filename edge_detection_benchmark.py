@@ -5,29 +5,58 @@ import sys
 from scipy import signal
 import os
 import pathlib
+import scaleImage
 
 import matplotlib
 matplotlib.use('Agg')  # Had to be imported after matplotlib, but before plt
 import matplotlib.pyplot as plt
 
-logging_delay = 10
+'''
+This script is used to run edge detection on an image.
+
+Method overview:
+run() - This method calls runED() on every image in /pictures directory
+runED() - This method runs the edge detection on the supplied input image and saves it to a supplied output
+'''
+
+
+LOGGING_DELAY = 10
+#run() calls runED() on every image in /pictures directory
+# Arguments:
+#   None
+# Returns:
+#   Just returns 1
 def run():
-    workingPath = pathlib.Path(__file__).parent.absolute()
+    #Find paths
+    workingPath = pathlib.Path().absolute()
     picturesPath = os.path.join(workingPath, 'pictures')
 
+    #Check that /pictures directory exists
     if not os.path.isdir(picturesPath):
         print('/pictures doesn\'t exist')
         sys.exit(-1);
 
+    #For every image in /pictures
     file_list = os.listdir(picturesPath)
     for file_name in file_list:
         inPicturePath = os.path.join(workingPath, 'pictures', file_name)
-        runED(inPicturePath, None, True)
+
+        # Create scaled versions of each image and run ED on each of those
+        scaled_file_list = scaleImage.main(inPicturePath, 150, 50, 5)  # SET AMOUNTS
+        for scaled_file_path in scaled_file_list:
+            runED(scaled_file_path)
+            os.remove(scaled_file_path)
+
     return 1
 
-def runED(input, output, deleteFlag):
+# Does edge detection
+# Arguments:
+#   input - String path to image input
+# Returns:
+#   Just returns 1
+def runED(input):
     input_name = input
-    output_name = output
+    #output_name = output
 
     # Open the image and grayscale it
     gray_img = np.array(ImageOps.grayscale(Image.open(input_name))).astype(np.uint8)
@@ -53,9 +82,8 @@ def runED(input, output, deleteFlag):
     new_Gradient = np.array(list(map(combineHorizVert, horizontal_Gradient, vertical_Gradient)))
 
     # Save to output
-    if not deleteFlag:
-        plt.title(output_name)
-        plt.imsave(output_name, new_Gradient, cmap='gray', format='png')
+    #plt.title(output_name)
+    #plt.imsave(output_name, new_Gradient, cmap='gray', format='png')
 
     return 1
 
