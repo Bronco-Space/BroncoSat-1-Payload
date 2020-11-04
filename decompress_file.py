@@ -9,6 +9,11 @@ import zlib
 
 #This file is a modified version of demo_decompress.py from https://github.com/fhkingma/bitswap
 
+'''
+This script is used to decompress files compressed by compression_benchmark, specifically zlib, gzip, bz2, and lzma.
+Currently only runs from CLI with syntax 'python decompress_file.py {path to compressed file}'.
+'''
+
 def input_compressed_file():    #Input compressed file, check that it exists, and that it has a valid extension. Return file information
     path = sys.argv[1]
 
