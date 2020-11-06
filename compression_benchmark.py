@@ -40,8 +40,8 @@ def run():
 
     #Check if /pictures path exists in same directory
     if not os.path.isdir(picturesPath):
-        print('/pictures doesn\'t exist')
-        sys.exit(-1);
+        print('ERROR in compression_benchmark: /pictures directory doesn\'t exist')
+        return 0
 
     bestResult = [100.0, 0] #Stores best compression ratio and associated method. bestResult[0] is the ratio, bestResult[1] stores the encoded return value
 
@@ -72,8 +72,8 @@ def compress(path):
     valid_filetypes = ('png', 'tif', 'tiff', 'jpg', 'jpeg', 'bmp', 'webp')
     dir, filename, file_ext = process_input_file(path=path)
     if not file_ext in valid_filetypes: #Accept only image files
-        print(f'{file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
-        sys.exit(-1)
+        print(f'ERROR in compression_benchmark: {file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
+        return 0
     uncompressed_size = os.path.getsize(path)  # Size of original file
 
     # Open input file and store contents
@@ -163,14 +163,14 @@ def runCompressionApproach(path, dir, filename, file_ext, infile_data, compressi
 #   file_ext - String file extension i.e. 'png'
 def process_input_file(path):
     if not isinstance(path, str):
-        print('Path must be string.')
-        sys.exit(-1)
+        print('ERROR in compression_benchmark: Path must be string.')
+        return 0
     if not os.path.exists(path):
-        print('Path does not exist.')
-        sys.exit(-1)
+        print('ERROR in compression_benchmark: Path does not exist.')
+        return 0
     if not isfile(path):
-        print('Path does not point to a file.')
-        sys.exit(-1)
+        print('ERROR in compression_benchmark: Path does not point to a file.')
+        return 0
 
     dir, file = os.path.split(os.path.abspath(path))
     filename, file_ext = os.path.splitext(file)

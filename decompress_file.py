@@ -18,22 +18,22 @@ def input_compressed_file():    #Input compressed file, check that it exists, an
     path = sys.argv[1]
 
     if not isinstance(path, str):
-        print('Path must be string.')
-        sys.exit(-1)
+        print('ERROR in decompress_file: Path must be string.')
+        return 0
     if not os.path.exists(path):
-        print('Path does not exist.')
-        sys.exit(-1)
+        print('ERROR in decompress_file: Path does not exist.')
+        return 0
     if not isfile(path):
-        print('Path does not point to a file.')
-        sys.exit(-1)
+        print('ERROR in decompress_file: Path does not point to a file.')
+        return 0
 
     dir, file = os.path.split(os.path.abspath(path))
     filename, file_ext = os.path.splitext(file)
 
     valid_filetypes = ('zlib', 'gzip', 'bz2', 'lzma')
     if not file_ext[1:] in valid_filetypes:
-        print(f'{file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
-        sys.exit(-1)
+        print(f'ERROR in decompress_file: {file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
+        return 0
 
     return dir, filename, file_ext
 
@@ -42,8 +42,8 @@ def input_compressed_file():    #Input compressed file, check that it exists, an
 if __name__ == '__main__':
     # Check that another argument, namely a path, is supplied
     if len(sys.argv) != 2:
-        print(f'Requires 1 argument, namely a path to the file. {len(sys.argv)} argument/s provided.')
-        sys.exit(-1)
+        print(f'ERROR in decompress_file: Requires 1 argument, namely a path to the file. {len(sys.argv)} argument/s provided.')
+        return 0
 
     # Retrieve information about input file
     dir, filename, file_ext = input_compressed_file()

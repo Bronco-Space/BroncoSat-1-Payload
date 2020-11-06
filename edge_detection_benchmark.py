@@ -33,8 +33,8 @@ def run():
 
     #Check that /pictures directory exists
     if not os.path.isdir(picturesPath):
-        print('/pictures doesn\'t exist')
-        sys.exit(-1);
+        print('ERROR in edge_detection_benchmark: /pictures directory doesn\'t exist')
+        return 0
 
     #For every image in /pictures
     file_list = os.listdir(picturesPath)

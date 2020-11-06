@@ -23,8 +23,8 @@ def run():
 
     #If there is not a /pictures path then exit
     if not os.path.isdir(picturesPath):
-        print('/pictures doesn\'t exist')
-        sys.exit(-1);
+        print('ERROR in subImageFinder: /pictures directory doesn\'t exist')
+        return 0
 
     #For every main image in the /pictures folder run the sub image finder.
     file_list = os.listdir(picturesPath)
