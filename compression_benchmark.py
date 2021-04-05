@@ -26,7 +26,7 @@ import pathlib
     process_input_file() - takes a file path as input and verifies it is valid. Returns information about the file that is used later.
 """
 
-LOGGING_DELAY = 10
+logging_delay = 15
 
 # Calls compress() on every image in the /pictures directory
 # Arguments:

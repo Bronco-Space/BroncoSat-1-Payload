@@ -69,9 +69,11 @@ def execute(benchmark):
 	# Start the logging thread and run the task, trigger the event when the task is done, ending the logging thread
 	log = logThread(finished, output_name, logging_delay)
 	log.start()
-	score = benchmark.run()
-	print('score',score)
-	finished.set()
-	log.join()
+	try:
+		score = benchmark.run()
+		print('score',score)
+	finally:
+		finished.set()
+		log.join()
 
 	return postprocess.process(output_name, score)
