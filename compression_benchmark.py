@@ -26,7 +26,7 @@ import pathlib
     process_input_file() - takes a file path as input and verifies it is valid. Returns information about the file that is used later.
 """
 
-logging_delay = 15
+LOGGING_DELAY = 10
 
 # Calls compress() on every image in the /pictures directory
 # Arguments:
@@ -40,25 +40,50 @@ def run():
 
     #Check if /pictures path exists in same directory
     if not os.path.isdir(picturesPath):
-        print('/pictures doesn\'t exist')
-        sys.exit(-1);
+        print('ERROR in compression_benchmark: /pictures directory doesn\'t exist')
+        return 0
 
     bestResult = [100.0, 0] #Stores best compression ratio and associated method. bestResult[0] is the ratio, bestResult[1] stores the encoded return value
 
     #For every picture in /pictures run compress() on them and save the best compression ratio and associated method
     file_list = os.listdir(picturesPath)
     for file_name in file_list:
-        inPicturePath = os.path.join(workingPath, 'pictures', file_name)    #Get path to picture
+        if file_name.startswith('US'):
+            continue
 
-        #Create scaled versions of each image and run compression on each of those
-        scaled_file_list = scaleImage.main(inPicturePath, 150, 50, 10)  #SET AMOUNTS
-        for scaled_file_path in scaled_file_list:
-            val, ratio = compress(scaled_file_path)
-            #If this picture had better compression, update bestResult
-            if ratio < bestResult[0]:
-                bestResult[0] = ratio
-                bestResult[1] = val
-            os.remove(scaled_file_path)
+        inPicturePath = os.path.join(picturesPath, file_name)    #Get path to picture
+        
+        #Check picture exists. Potential race condition
+        if not pathlib.Path(inPicturePath).is_file():
+            continue
+
+        #Create scaled versions of each image and run compression on each of those. If scaling fails, delete and try next image
+        try:
+            scaled_file_list = scaleImage.main(inPicturePath, 100, 100, 10)  #SET AMOUNTS
+        except:
+            for scaled_file_path in scaled_file_list:
+                try:
+                    os.remove(scaled_file_path)
+                except FileNotFoundError:
+                    pass
+            continue
+
+        # Catch any issues and make sure that generated scaled versions of the image are deleted no matter what.
+        # Realistically I don't think this is necessary as no fileio is going on here, but I wanted to be careful and ensure deletion occurs. compress() uses a with statement that should hopefully mitigate issues there.
+        try:
+            for scaled_file_path in scaled_file_list:
+                val, ratio = compress(scaled_file_path)
+                #If this picture had better compression, update bestResult
+                if ratio < bestResult[0]:
+                    bestResult[0] = ratio
+                    bestResult[1] = val
+                    
+        finally:
+            for scaled_file_path in scaled_file_list:
+                try:
+                    os.remove(scaled_file_path)
+                except FileNotFoundError:
+                    pass
 
     return bestResult[1]
 
@@ -72,46 +97,46 @@ def compress(path):
     valid_filetypes = ('png', 'tif', 'tiff', 'jpg', 'jpeg', 'bmp', 'webp')
     dir, filename, file_ext = process_input_file(path=path)
     if not file_ext in valid_filetypes: #Accept only image files
-        print(f'{file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
-        sys.exit(-1)
+        print(f'ERROR in compression_benchmark: {file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
+        return 0
     uncompressed_size = os.path.getsize(path)  # Size of original file
 
     # Open input file and store contents
-    infile = open(path, 'rb')
-    infile_data = infile.read()
+    with open(path, 'rb') as infile:
+        infile_data = infile.read()
 
-    #Ready running tally of best algorithm
-    min_size = [uncompressed_size, 'uncompressed']
+        #Ready running tally of best algorithm
+        min_size = [uncompressed_size, 'uncompressed']
 
-    # Run various compression approaches. If one gets better compression size, then update min_size to reflect this change
-    compression_approaches = ('zlib', 'gzip', 'bz2', 'lzma', 'png', 'webp')
-    for method in compression_approaches:
-        temp_size = runCompressionApproach(path, dir, filename, file_ext, infile_data, method)
-        if temp_size < min_size[0]:
-            min_size[0] = temp_size
-            min_size[1] = method
+        # Run various compression approaches. If one gets better compression size, then update min_size to reflect this change
+        compression_approaches = ('zlib', 'gzip', 'bz2', 'lzma', 'png', 'webp')
+        for method in compression_approaches:
+            temp_size = runCompressionApproach(path, dir, filename, file_ext, infile_data, method)
+            if temp_size < min_size[0]:
+                min_size[0] = temp_size
+                min_size[1] = method
 
-    #Calculate encoded return code
-    #If compression results in a size larger than uncompressed or something else wacky goes on it will return 0
-    encodedReturnVal = 0000
-    bestRatio = min_size[0] / uncompressed_size #* 1000
+        #Calculate encoded return code
+        #If compression results in a size larger than uncompressed or something else wacky goes on it will return 0
+        encodedReturnVal = 0000
+        bestRatio = min_size[0] / uncompressed_size #* 1000
 
-    #Use raw float for comparison so if the compressed file is one bit smaller it is still included
-    if bestRatio < 1 and bestRatio >= 0:
-        if min_size[1] == 'zlib':
-            encodedReturnVal = 1000
-        elif min_size[1] == 'gzip':
-            encodedReturnVal = 2000
-        elif min_size[1] == 'bz2':
-            encodedReturnVal = 3000
-        elif min_size[1] == 'lzma':
-            encodedReturnVal = 4000
-        elif min_size[1] == 'png':
-            encodedReturnVal = 5000
-        elif min_size[1] == 'webp':
-            encodedReturnVal = 6000
+        #Use raw float for comparison so if the compressed file is one bit smaller it is still included
+        if bestRatio < 1 and bestRatio >= 0:
+            if min_size[1] == 'zlib':
+                encodedReturnVal = 1000
+            elif min_size[1] == 'gzip':
+                encodedReturnVal = 2000
+            elif min_size[1] == 'bz2':
+                encodedReturnVal = 3000
+            elif min_size[1] == 'lzma':
+                encodedReturnVal = 4000
+            elif min_size[1] == 'png':
+                encodedReturnVal = 5000
+            elif min_size[1] == 'webp':
+                encodedReturnVal = 6000
 
-        encodedReturnVal += int(bestRatio * 1000)
+            encodedReturnVal += int(bestRatio * 1000)
     return encodedReturnVal, bestRatio * 100
 
 #This function runs the specified compression technique on the input file.
@@ -130,26 +155,31 @@ def runCompressionApproach(path, dir, filename, file_ext, infile_data, compressi
 
     #Ready file_out
     file_out_path = join(dir, f'{filename}_{file_ext}.{compression_method}')
-    file_out = open(file_out_path, 'wb')
+    # Try to catch any file io problems, and make sure to delete the file no matter what
+    try:
+        with open(file_out_path, 'wb') as file_out:
 
-    #Run different compression algorithms
-    if compression_method == 'zlib':
-        file_out.write(zlib.compress(infile_data))
-    elif compression_method == 'gzip':
-        file_out.write(gzip.compress(infile_data))
-    elif compression_method == 'bz2':
-        file_out.write(bz2.compress(infile_data))
-    elif compression_method == 'lzma':
-        file_out.write(lzma.compress(infile_data))
-    elif compression_method == 'png':
-        Image.open(path).save(file_out_path, format='PNG', optimize=True, compress_level=9)
-    elif compression_method == 'webp':
-        Image.open(path).save(file_out_path, format='WebP', lossless=True, quality=100, method=6)
+            #Run different compression algorithms
+            if compression_method == 'zlib':
+                file_out.write(zlib.compress(infile_data))
+            elif compression_method == 'gzip':
+                file_out.write(gzip.compress(infile_data))
+            elif compression_method == 'bz2':
+                file_out.write(bz2.compress(infile_data))
+            elif compression_method == 'lzma':
+                file_out.write(lzma.compress(infile_data))
+            elif compression_method == 'png':
+                Image.open(path).save(file_out_path, format='PNG', optimize=True, compress_level=9)
+            elif compression_method == 'webp':
+                Image.open(path).save(file_out_path, format='WebP', lossless=True, quality=100, method=6)
 
-    #Store size of the compressed file
-    file_out.close()
-    compressed_size = os.path.getsize(file_out_path)
-    os.remove(file_out_path)
+        #Store size of the compressed file
+        compressed_size = os.path.getsize(file_out_path)
+    finally:
+        try:
+            os.remove(file_out_path)
+        except FileNotFoundError:
+            pass
 
     #Return the resultant compressed size
     return compressed_size
@@ -163,14 +193,14 @@ def runCompressionApproach(path, dir, filename, file_ext, infile_data, compressi
 #   file_ext - String file extension i.e. 'png'
 def process_input_file(path):
     if not isinstance(path, str):
-        print('Path must be string.')
-        sys.exit(-1)
+        print('ERROR in compression_benchmark: Path must be string.')
+        return 0
     if not os.path.exists(path):
-        print('Path does not exist.')
-        sys.exit(-1)
+        print('ERROR in compression_benchmark: Path does not exist.')
+        return 0
     if not isfile(path):
-        print('Path does not point to a file.')
-        sys.exit(-1)
+        print('ERROR in compression_benchmark: Path does not point to a file.')
+        return 0
 
     dir, file = os.path.split(os.path.abspath(path))
     filename, file_ext = os.path.splitext(file)
