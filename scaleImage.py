@@ -20,22 +20,23 @@ from os.path import isfile
 
 def main(path, high, low, inc):
     #Check that input path is valid
+    
     if not isinstance(path, str):
-        print('Path must be string.')
-        sys.exit(-1)
+        print('ERROR in scaleImage: Path must be string.')
+        return 0
     if not os.path.exists(path):
-        print('Path does not exist.')
-        sys.exit(-1)
+        print('ERROR in scaleImage: Path does not exist.')
+        return 0
     if not isfile(path):
-        print('Path does not point to a file.')
-        sys.exit(-1)
+        print('ERROR in scaleImage: Path does not point to a file.')
+        return 0
     filename, file_ext = os.path.splitext(path)
 
     #Make sure the file is an image
     valid_filetypes = ('png', 'tif', 'tiff', 'jpg', 'jpeg', 'bmp', 'webp')
     if not file_ext[1:] in valid_filetypes:
-        print(f'{file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
-        sys.exit(-1)
+        print(f'ERROR in scaleImage: {file_ext} is an invalid file type. {valid_filetypes} are all accepted types.')
+        return 0
 
     #Stores the percent sizes to rescale to
     i = high
